@@ -38,7 +38,7 @@ new_bib = BibliographyData(entries=[])
 def processTitle(s):
     if s[0] == '{':
         s = s[1:-1]
-    return s
+    return s.lower()
    
 # Build a dict for the primary
 bib = {}
@@ -56,7 +56,7 @@ for k in sec_bib.entries.keys():
             msg = 'map to {0}'.format(bib[title][0])
         if not args.patch_only:
             new_bib.entries[k] = new_entry
-            print 'Found duplication {0}, {1}'.format(k, msg)
+        print 'Found duplication {0}, {1}'.format(k, msg)
     else:
         if k in prim_bib.entries.keys():
             print ('ERROR: The same key {0} for two different citations.'.format(k))
