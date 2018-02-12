@@ -7,7 +7,11 @@ This simple Python script is used for two purposes:
 ### How to Use
 - Single mode (check the duplication only)
 
-- Merging mode
+`python bibtex_dup_remover.py ref.bib`
+
+- Merging mode (generate the merged version called out.bib)
+
+`python bibtex_dup_remover.py ref.bib --another-bib new.bib`
 
 ### Requirements
 - pybtex
