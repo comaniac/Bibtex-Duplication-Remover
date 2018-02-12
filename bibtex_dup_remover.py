@@ -12,25 +12,37 @@ parser.add_argument('--out', action='store',
         help='The merged bib file')
 parser.add_argument('--patch-only', action='store_true', 
         default=False,
-        help='Only write the new entries from the seconday file')
+        help='Only write the new entries from the to-be-merged file')
 parser.add_argument('--verbose', action='store_true', 
         default=False,
         help='Print out details')
+parser.add_argument('--another-bib', action='store', 
+        default=None,
+        help='The bibtex file to be merged')
 parser.add_argument('primary_bib', action='store', 
-        help='The primary bibtex file')
-parser.add_argument('secondary_bib', action='store', 
-        help='The secondary bibtex file')
+        help='The source bibtex file')
 args = parser.parse_args()
 
+single_mode = False
+
 if not os.path.exists(args.primary_bib):
-    print 'Cannot open the primary bibtex'
+    print 'Cannot open the source bibtex file'
     sys.exit(1)
-if not os.path.exists(args.secondary_bib):
-    print 'Cannot open the secondary bibtex'
-    sys.exit(1)
-   
-prim_bib = parse_file(args.primary_bib)
-sec_bib = parse_file(args.secondary_bib)
+else:
+    print 'Reading the source bibtex file'
+    prim_bib = parse_file(args.primary_bib)
+
+if not args.another_bib is None:
+    if not os.path.exists(args.another_bib):
+        print 'Cannot open the to-be-merged bibtex file'
+        sys.exit(1)
+    else:
+        print 'Reading the to-be-merged bib file'
+        sec_bib = parse_file(args.another_bib)
+else:
+    print 'Running single mode'
+    single_mode = True
+
 new_bib = BibliographyData(entries=[])
 
 # Functions
@@ -40,34 +52,52 @@ def processTitle(s):
         s = s[1:-1]
     return s.lower()
    
-# Build a dict for the primary
+# Build a dict for the primary and check the duplication
+print 'Checking the duplication of the source bibtex file'
 bib = {}
 for k in prim_bib.entries.keys():
     title = processTitle(prim_bib.entries[k].fields['title'])
-    bib[title] = (k, prim_bib.entries[k])
+    if title in bib:
+        print ('Found duplication {0} with two keys {1} and {2} '
+                .format(title, k, bib[title][0]) +
+                'inside primary bib')
+    else:
+        bib[title] = (k, prim_bib.entries[k])
+        if not args.patch_only:
+            new_bib.entries[k] = copy.deepcopy(prim_bib.entries[k])
+       
+if single_mode:
+    print 'Finished'
+    sys.exit(0)
 
+# Scan the second bib and check the duplication
+print 'Merging another bibtex file'
 for k in sec_bib.entries.keys():
     title = processTitle(sec_bib.entries[k].fields['title'])
-    new_entry = copy.deepcopy(sec_bib.entries[k])  
     if title in bib:
-        if k == bib[title][0]:
+        # Find duplication
+        # FIXME We current identify the duplication using the title only,
+        # but maybe this is not sufficient
+        if k == bib[title][0]: # Same key, don't merge
             msg = 'ignore'
-        else:
+        else: # Different key, only adopt the one in primary
             msg = 'map to {0}'.format(bib[title][0])
-        if not args.patch_only:
-            new_bib.entries[k] = new_entry
         print 'Found duplication {0}, {1}'.format(k, msg)
     else:
         if k in prim_bib.entries.keys():
-            print ('ERROR: The same key {0} for two different citations.'.format(k))
-            print ('You need to manually resolve the conflict for {0} in the primary and {1} in the secondary'
-                    .format(prim_bib.entries[k].fields['title'], title))
+            # The to-be-merged bibtex has the same key as the primary bibtex
+            # but with different title
+            print ('ERROR: The same key {0} for two different citations.'
+                    .format(k))
+            print ('You need to manually resolve the conflict for {0} '
+                    .format(prim_bib.entries[k].fields['title']) +
+                    'in the primary and {0} in the secondary'.format(title))
             sys.exit(1)
-        if args.patch_only and args.verbose:
+        if args.verbose:
             print 'New entry: {0}'.format(title)
-        new_bib.entries[k] = new_entry
+        new_bib.entries[k] = copy.deepcopy(sec_bib.entries[k])  
 
 new_bib.to_file(args.out, 'bibtex')
 
-print 'Done'
+print 'Finished'
 
